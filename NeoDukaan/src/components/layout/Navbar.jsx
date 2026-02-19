@@ -1,18 +1,21 @@
 import NeoDukaan from "../../assets/images/Neo.png";
 import { Moon, Menu } from "lucide-react";
+import { Link } from "react-router-dom";
 
 function Navbar() {
   return (
     <div className="bg-transparent h-20 w-full px-4 sm:px-6 lg:px-16 flex items-center justify-between">
       {/* LEFT - Logo */}
       <div className="flex items-center gap-3">
-        <img
-          src={NeoDukaan}
-          alt="NeoDukaan Logo"
-          className="h-10 sm:h-12 invert cursor-pointer"
-        />
+        <Link to="/">
+          <img
+            src={NeoDukaan}
+            alt="NeoDukaan Logo"
+            className="h-10 sm:h-12 invert cursor-pointer"
+          />
+        </Link>
         <span className="text-white text-lg font-semibold cursor-pointer hover:text-blue-500 transition-colors">
-          NeoDukaan
+          <Link to="/"> NeoDukaan</Link>
         </span>
       </div>
 
@@ -36,12 +39,20 @@ function Navbar() {
       <div className="flex items-center gap-4">
         {/* Hide Sign In on small screens */}
         <div className="hidden sm:block text-white/70 hover:text-white cursor-pointer transition">
-          Sign In
+          <Link to="/signup">
+            <div className="text-white/70 hover:text-white cursor-pointer">
+              Sign In
+            </div>
+          </Link>
         </div>
 
         {/* CTA */}
         <div className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-blue-600/20 cursor-pointer">
-          Log In
+          <Link to="/login">
+            <div className="text-white/70 hover:text-white cursor-pointer">
+              Log In
+            </div>
+          </Link>
         </div>
 
         {/* Moon Icon */}
