@@ -1,11 +1,11 @@
-import React from 'react'
+  import React from 'react'
 
-const Reports = () => {
-  return (
-    <div>
-      
-    </div>
-  )
-}
+  const Reports = () => {
+    return (
+      <div>
+        
+      </div>
+    )
+  }
 
-export default Reports
+  export default Reports
