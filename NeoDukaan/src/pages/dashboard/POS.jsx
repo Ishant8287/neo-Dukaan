@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
+import { Trash2 } from "lucide-react";
 
 const POS = () => {
-  const { items, setItems } = useOutletContext();
+  //Getting state from dashboard layout
+  const { items, setItems, sales, setSales } = useOutletContext();
+
+  //Cart State
   const [cart, setCart] = useState([]);
 
+  //Add to Cart
   const addToCart = (item) => {
     const existing = cart.find((c) => c.id === item.id);
 
@@ -32,16 +37,69 @@ const POS = () => {
           name: item.name,
           sellingPrice: item.sellingPrice,
           quantity: 1,
+          costPrice: item.costPrice,
         },
       ]);
     }
   };
 
+  //Delete from cart
+  const deleteFromCart = (id) => {
+    setCart((prev) => {
+      return prev
+        .map((cartItem) => {
+          if (cartItem.id === id) {
+            return { ...cartItem, quantity: cartItem.quantity - 1 };
+          }
+          return cartItem;
+        })
+        .filter((cartItem) => cartItem.quantity > 0);
+    });
+  };
+
+  //Increase Qty
+  const increaseQty = (id) => {
+    setCart((prev) =>
+      prev.map((cartItem) => {
+        const stockItem = items.find((i) => i.id === id);
+
+        if (cartItem.id === id) {
+          if (cartItem.quantity >= stockItem.stock) return cartItem;
+          return { ...cartItem, quantity: cartItem.quantity + 1 };
+        }
+
+        return cartItem;
+      }),
+    );
+  };
+
+  //handle Checkout
   const handleCheckout = () => {
     if (cart.length === 0) {
       alert("Cart is empty");
       return;
     }
+
+    //Calculating profit
+    const calculateProfit = cart.reduce(
+      (profit, item) =>
+        (profit += (item.sellingPrice - item.costPrice) * item.quantity),
+      0,
+    );
+
+    const total = cart.reduce(
+      (sum, item) => sum + item.sellingPrice * item.quantity,
+      0,
+    );
+
+    //Create a sale Object
+    const newSale = {
+      id: Date.now(),
+      items: cart,
+      totalAmount: total,
+      totalProfit: calculateProfit,
+      date: new Date().toISOString(),
+    };
 
     setItems((prev) =>
       prev.map((item) => {
@@ -56,7 +114,8 @@ const POS = () => {
         };
       }),
     );
-
+    setSales((prev) => [...prev, newSale]);
+    console.log(newSale);
     setCart([]);
   };
 
@@ -65,6 +124,11 @@ const POS = () => {
     0,
   );
 
+  //Completely Remove from Cart
+  const removeFromCart = (id) => {
+    setCart((prev) => prev.filter((cardItem) => cardItem.id != id));
+  };
+  console.log("Current Sales:", sales);
   return (
     <div className="flex gap-6 text-white">
       {/* LEFT SIDE - ITEMS */}
@@ -102,7 +166,26 @@ const POS = () => {
             <span>
               {c.name} x {c.quantity}
             </span>
-            <span>₹{c.sellingPrice * c.quantity}</span>
+            <div className="flex gap-3 items-center">
+              <span>₹{c.sellingPrice * c.quantity}</span>
+              <div className="w-18 bg-red-500 h-6 rounded-4xl flex justify-around items-center">
+                <button onClick={() => deleteFromCart(c.id)}>-</button>
+
+                <button onClick={() => removeFromCart(c.id)}>
+                  <Trash2 size={16} />
+                </button>
+
+                <button
+                  onClick={() => increaseQty(c.id)}
+                  disabled={
+                    c.quantity >= items.find((i) => i.id === c.id)?.stock
+                  }
+                  className="disabled:opacity-40"
+                >
+                  +
+                </button>
+              </div>
+            </div>
           </div>
         ))}
 
@@ -114,7 +197,10 @@ const POS = () => {
         </div>
 
         <button
-          onClick={handleCheckout}
+          onClick={() => {
+            console.log("Checkout clicked");
+            handleCheckout();
+          }}
           className="w-full bg-green-600 py-2 rounded"
         >
           Checkout
