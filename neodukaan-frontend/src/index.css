@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  height: 100%;
+  background-color: #0b1120 !important; 
+  color: #ffffff !important;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 90px;
+}
+
+@font-face {
+  font-family: "MyFont";
+  src: url("./assets/fonts/SF-Pro-Display-Light.otf") format("opentype");
+}
+
+* {
+  font-family: "MyFont", sans-serif;
+}
