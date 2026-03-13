@@ -12,15 +12,19 @@ https://retail-flow-xi.vercel.app/
 🔗 Backend API:
 https://retailflow.onrender.com
 
-📸 Screenshots
-Dashboard
-/screenshots/dashboard.png
-POS Billing
-/screenshots/pos.png
-Inventory Management
-/screenshots/inventory.png
-Analytics
-/screenshots/analytics.png
+## 📸 Screenshots
+
+### Dashboard
+![Dashboard](screenshots/dashboard.png)
+
+### POS Billing
+![POS](screenshots/pos.png)
+
+### Inventory Management
+![Inventory](screenshots/inventory.png)
+
+### Analytics
+![Analytics](screenshots/analytics.png)
 
 
 🧠 Core Features
