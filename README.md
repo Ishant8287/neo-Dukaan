@@ -100,15 +100,7 @@ Smart caching
 
 
 ## 🏗️ System Architecture
-Frontend (React + Tailwind)
-           │
-           ▼
-Backend (Node + Express)
-           │
- ┌─────────┼─────────┐
- ▼         ▼         ▼
-MongoDB   ImageKit   Groq AI
-Database  CDN        AI Engine
+![System Architecture](screenshots/systemarch.png)
 
 
 ⚙️ Tech Stack
