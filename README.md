@@ -100,25 +100,15 @@ Smart caching
 
 
 ## 🏗️ System Architecture
-
-          ┌─────────────────────────┐
-          │        Frontend         │
-          │     React + Tailwind    │
-          └───────────┬─────────────┘
-                      │
-                      │ REST API
-                      │
-          ┌───────────▼─────────────┐
-          │         Backend         │
-          │      Node + Express     │
-          └───────────┬─────────────┘
-                      │
-        ┌─────────────┼─────────────┐
-        │             │             │
- ┌──────▼─────┐ ┌─────▼─────┐ ┌─────▼─────┐
- │   MongoDB  │ │  ImageKit │ │  Groq AI  │
- │  Database  │ │  CDN      │ │ AI Engine │
- └────────────┘ └───────────┘ └───────────┘
+Frontend (React + Tailwind)
+           │
+           ▼
+Backend (Node + Express)
+           │
+ ┌─────────┼─────────┐
+ ▼         ▼         ▼
+MongoDB   ImageKit   Groq AI
+Database  CDN        AI Engine
 
 
 ⚙️ Tech Stack
