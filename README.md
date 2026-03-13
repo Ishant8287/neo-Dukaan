@@ -13,9 +13,6 @@ https://retail-flow-xi.vercel.app/
 https://retailflow.onrender.com
 
 📸 Screenshots
-
-(Add screenshots here — recruiters love visuals)
-
 Dashboard
 /screenshots/dashboard.png
 POS Billing
@@ -24,7 +21,6 @@ Inventory Management
 /screenshots/inventory.png
 Analytics
 /screenshots/analytics.png
-
 
 
 🧠 Core Features
