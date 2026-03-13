@@ -186,7 +186,7 @@ API rate limiting
 
 Clone the repository
 
-git clone https://github.com/yourusername/retailflow.git
+git clone https://github.com/Ishant8287/RetailFlow
 
 Install dependencies
 
