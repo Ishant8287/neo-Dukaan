@@ -3,7 +3,6 @@ import Staff from "../models/Staff.js";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
 
-
 const sanitizeShop = (shop) => {
   const obj = shop.toObject ? shop.toObject() : { ...shop };
   delete obj.password;
@@ -12,7 +11,6 @@ const sanitizeShop = (shop) => {
   delete obj.__v;
   return obj;
 };
-
 
 export const register = async (req, res) => {
   try {
@@ -26,12 +24,10 @@ export const register = async (req, res) => {
 
     const shopExists = await Shop.findOne({ email });
     if (shopExists) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "An account with this email already exists.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
     }
 
     const shop = await Shop.create({
@@ -52,7 +48,6 @@ export const register = async (req, res) => {
   }
 };
 
-
 export const sendOtp = async (req, res) => {
   try {
     const { contactMethod, contactValue } = req.body;
@@ -64,17 +59,14 @@ export const sendOtp = async (req, res) => {
     const shop = await Shop.findOne(query);
 
     if (!shop) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "No RetailFlow account found with this detail.",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "No RetailFlow account found with this detail.",
+      });
     }
 
     const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    
     const salt = await bcrypt.genSalt(10);
     shop.otp = await bcrypt.hash(rawOtp, salt);
     shop.otpExpires = Date.now() + 10 * 60 * 1000; // 10 mins
@@ -83,11 +75,16 @@ export const sendOtp = async (req, res) => {
     if (contactMethod === "email") {
       let transporter;
 
-     
       if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
         transporter = nodemailer.createTransport({
-          service: "gmail",
-          auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+          host: "smtp.gmail.com",
+          port: 465,
+          secure: true,
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+          },
+          family: 4,
         });
       } else {
         const testAccount = await nodemailer.createTestAccount();
@@ -100,7 +97,7 @@ export const sendOtp = async (req, res) => {
       }
 
       const info = await transporter.sendMail({
-        from: `"RetailFlow" <${process.env.EMAIL_USER || "noreply@retailflow.com"}>`,
+        from: `"RetailFlow Admin" <${process.env.EMAIL_USER || "noreply@retailflow.com"}>`,
         to: shop.email,
         subject: "RetailFlow - Your Login OTP",
         html: `
@@ -119,7 +116,6 @@ export const sendOtp = async (req, res) => {
         );
       }
     } else {
-    
       console.log(`\n📱 MOCK SMS to ${shop.phone} — OTP: ${rawOtp}\n`);
     }
 
@@ -151,35 +147,27 @@ export const verifyOtp = async (req, res) => {
     }
 
     if (!shop.otp || !shop.otpExpires) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "No OTP requested. Please request a new one.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "No OTP requested. Please request a new one.",
+      });
     }
 
     if (shop.otpExpires < Date.now()) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "OTP expired. Please request a new one.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "OTP expired. Please request a new one.",
+      });
     }
 
-  
     const isMatch = await bcrypt.compare(otp, shop.otp);
     if (!isMatch) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Invalid OTP. Please check and try again.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP. Please check and try again.",
+      });
     }
 
-  
     shop.otp = null;
     shop.otpExpires = null;
     await shop.save();
@@ -190,13 +178,12 @@ export const verifyOtp = async (req, res) => {
       success: true,
       token,
       message: "Welcome back to RetailFlow! 👋",
-      data: sanitizeShop(shop), 
+      data: sanitizeShop(shop),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 export const staffLogin = async (req, res) => {
   try {
@@ -210,12 +197,10 @@ export const staffLogin = async (req, res) => {
     }
 
     if (!staff.isActive) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Your account has been deactivated. Contact the owner.",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated. Contact the owner.",
+      });
     }
 
     const isMatch = await bcrypt.compare(pin, staff.pin);
@@ -242,7 +227,6 @@ export const staffLogin = async (req, res) => {
   }
 };
 
-
 export const getMe = async (req, res) => {
   try {
     const shop = await Shop.findById(req.shop.id);
@@ -252,10 +236,8 @@ export const getMe = async (req, res) => {
   }
 };
 
-
 export const updateProfile = async (req, res) => {
   try {
-    // FIX: Never allow email/password change through this route
     const { password, email, otp, otpExpires, ...updateData } = req.body;
 
     const shop = await Shop.findByIdAndUpdate(req.shop.id, updateData, {
