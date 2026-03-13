@@ -1,0 +1,127 @@
+import Staff from "../models/Staff.js";
+import bcrypt from "bcryptjs";
+
+// @route   POST /api/v1/staff
+export const addStaff = async (req, res) => {
+  try {
+    const { name, phone, role, pin, permissions } = req.body;
+
+    if (!name || !phone || !pin) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Name, phone, and PIN are required.",
+        });
+    }
+
+    if (pin.length < 4) {
+      return res
+        .status(400)
+        .json({ success: false, message: "PIN must be at least 4 digits." });
+    }
+
+    const existing = await Staff.findOne({ phone });
+    if (existing) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "A staff account with this phone already exists.",
+        });
+    }
+
+    const staff = await Staff.create({
+      shop: req.shop.id,
+      name,
+      phone,
+      role: role || "cashier",
+      pin,
+      permissions: permissions || {},
+    });
+
+    // Return without pin
+    const staffObj = staff.toObject();
+    delete staffObj.pin;
+
+    res
+      .status(201)
+      .json({
+        success: true,
+        data: staffObj,
+        message: `${name} added as ${role || "cashier"}!`,
+      });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @route   GET /api/v1/staff
+export const getStaff = async (req, res) => {
+  try {
+    const staff = await Staff.find({ shop: req.shop.id }).sort("-createdAt");
+    res.status(200).json({ success: true, count: staff.length, data: staff });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @route   PUT /api/v1/staff/:id
+export const updateStaff = async (req, res) => {
+  try {
+    const staff = await Staff.findOne({
+      _id: req.params.id,
+      shop: req.shop.id,
+    });
+    if (!staff)
+      return res
+        .status(404)
+        .json({ success: false, message: "Staff not found." });
+
+    const { name, role, isActive, permissions, pin } = req.body;
+
+    if (name) staff.name = name;
+    if (role) staff.role = role;
+    if (isActive !== undefined) staff.isActive = isActive;
+    if (permissions)
+      staff.permissions = { ...staff.permissions, ...permissions };
+
+    if (pin) {
+      if (pin.length < 4)
+        return res
+          .status(400)
+          .json({ success: false, message: "PIN must be at least 4 digits." });
+      staff.pin = pin; // pre-save hook will hash it
+    }
+
+    await staff.save();
+
+    const staffObj = staff.toObject();
+    delete staffObj.pin;
+
+    res
+      .status(200)
+      .json({ success: true, data: staffObj, message: "Staff updated!" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @route   DELETE /api/v1/staff/:id
+export const removeStaff = async (req, res) => {
+  try {
+    const staff = await Staff.findOne({
+      _id: req.params.id,
+      shop: req.shop.id,
+    });
+    if (!staff)
+      return res
+        .status(404)
+        .json({ success: false, message: "Staff not found." });
+
+    await staff.deleteOne();
+    res.status(200).json({ success: true, message: "Staff removed." });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
