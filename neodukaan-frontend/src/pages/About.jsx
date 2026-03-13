@@ -1,89 +1,74 @@
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
+import { Rocket, Users, Heart, Globe } from "lucide-react";
 
-const Terms = ({ theme, setTheme }) => {
+const About = () => {
   return (
-    <div className="bg-slate-50 dark:bg-[#0b1120] min-h-screen transition-colors duration-300 flex flex-col">
-      <Navbar theme={theme} setTheme={setTheme} />
+    <div className="bg-[#0b1120] min-h-screen flex flex-col">
+      <Navbar />
 
-      <main className="flex-1 max-w-4xl mx-auto px-6 py-32 w-full">
-        <h1 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">
-          Terms of Service
-        </h1>
-        <p className="text-slate-500 font-medium mb-12">
-          Last Updated: February 2026
-        </p>
+      <main className="flex-1 pt-32 pb-20 px-6 max-w-7xl mx-auto w-full">
+        {/* Hero Section */}
+        <div className="text-center mb-20">
+          <h1 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tight">
+            Our Mission is to <br />
+            <span className="text-indigo-500 text-shadow-glow">
+              Empower Retailers.
+            </span>
+          </h1>
+          <p className="text-slate-400 text-xl max-w-3xl mx-auto font-medium leading-relaxed">
+            RetailFlow was born out of a simple idea: bringing enterprise-level
+            technology to every small and medium business owner in India.
+          </p>
+        </div>
 
-        <div className="space-y-8 text-slate-700 dark:text-slate-300 leading-relaxed">
-          <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
-              1. Acceptance of Terms
+        {/* Stats/Features Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-24">
+          <AboutCard
+            icon={<Rocket className="text-indigo-400" />}
+            title="Fast Innovation"
+            desc="Building tools that make daily operations 10x faster."
+          />
+          <AboutCard
+            icon={<Users className="text-emerald-400" />}
+            title="User Centric"
+            desc="Designed specifically for the needs of Indian shopkeepers."
+          />
+          <AboutCard
+            icon={<Heart className="text-rose-400" />}
+            title="Trusted Data"
+            desc="Your business data is secure, private, and always yours."
+          />
+          <AboutCard
+            icon={<Globe className="text-amber-400" />}
+            title="Made in India"
+            desc="Proudly built to support the Digital India initiative."
+          />
+        </div>
+
+        {/* Story Section */}
+        <div className="bg-[#111827] border border-slate-800 rounded-[40px] p-10 md:p-16 flex flex-col md:flex-row items-center gap-12 shadow-2xl">
+          <div className="flex-1">
+            <h2 className="text-3xl font-black text-white mb-6">
+              The RetailFlow Story
             </h2>
-            <p>
-              By accessing and using the NeoDukaan platform ("Service"), you
-              accept and agree to be bound by the terms and provision of this
-              agreement. In addition, when using these particular services, you
-              shall be subject to any posted guidelines or rules applicable to
-              such services.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
-              2. Description of Service
-            </h2>
-            <p>
-              NeoDukaan provides a digital ledger, inventory management, and
-              Point of Sale (POS) system for retail shops. We reserve the right
-              to modify, suspend or discontinue the Service with or without
-              notice at any time and without any liability to you.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
-              3. User Responsibilities
-            </h2>
-            <ul className="list-disc pl-5 space-y-2">
-              <li>
-                You are responsible for maintaining the confidentiality of your
-                account and password.
-              </li>
-              <li>
-                You are responsible for all data entered into the system,
-                including GST calculations, invoice generation, and customer
-                ledgers.
-              </li>
-              <li>
-                You agree not to use the Service for any illegal or unauthorized
-                purpose.
-              </li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
-              4. Payments and Subscriptions
-            </h2>
-            <p>
-              If you choose to upgrade to a paid premium plan (NeoDukaan Pro),
-              you agree to pay the fees quoted to you when you purchase that
-              service. We reserve the right to change our pricing at any time
-              with appropriate notice.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
-              5. Limitation of Liability
-            </h2>
-            <p>
-              NeoDukaan shall not be liable for any direct, indirect,
-              incidental, special, or consequential damages resulting from the
-              use or inability to use the service, including but not limited to
-              loss of profits, data, or business interruptions.
-            </p>
-          </section>
+            <div className="space-y-4 text-slate-400 font-medium leading-relaxed">
+              <p>
+                In 2026, we noticed that while technology was advancing rapidly,
+                thousands of local retailers were still stuck with manual
+                notebooks and complicated calculations.
+              </p>
+              <p>
+                RetailFlow was created as a solution—a smart, offline-ready, and
+                easy-to-use platform that handles everything from stock tracking
+                to automated WhatsApp billing. We are more than just a POS; we
+                are a business partner.
+              </p>
+            </div>
+          </div>
+          <div className="w-full md:w-1/3 aspect-square bg-indigo-600/20 rounded-3xl border border-indigo-500/30 flex items-center justify-center">
+            <span className="text-7xl font-black text-indigo-500">RF</span>
+          </div>
         </div>
       </main>
 
@@ -92,4 +77,14 @@ const Terms = ({ theme, setTheme }) => {
   );
 };
 
-export default Terms;
+const AboutCard = ({ icon, title, desc }) => (
+  <div className="bg-[#111827] border border-slate-800 p-8 rounded-3xl hover:border-indigo-500/50 transition-all group">
+    <div className="mb-4 bg-slate-800/50 w-12 h-12 flex items-center justify-center rounded-2xl group-hover:scale-110 transition-transform">
+      {icon}
+    </div>
+    <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
+    <p className="text-slate-400 text-sm font-medium">{desc}</p>
+  </div>
+);
+
+export default About;

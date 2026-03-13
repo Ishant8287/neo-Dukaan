@@ -1,207 +1,193 @@
+/* eslint-disable no-unused-vars */
 import { useParams, useOutletContext } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Printer, Download } from "lucide-react";
+import { Printer, Download, Mail, Phone, MapPin } from "lucide-react";
+import { toast } from "sonner";
 
 const Invoice = () => {
   const { id } = useParams();
   const { sales = [], shopProfile = {} } = useOutletContext();
 
-  const sale = sales.find((s) => String(s.id) === String(id));
+  const sale = sales.find((s) => String(s._id) === String(id));
 
   if (!sale) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-slate-500 bg-slate-50 dark:bg-[#0b1120] font-bold">
+      <div className="min-h-screen flex items-center justify-center text-slate-500 font-bold bg-[#0b1120]">
         Invoice Not Found
       </div>
     );
   }
 
-  // --- Profile Details ---
-  const shopName = shopProfile.name || "NeoDukaan";
+  // --- Dynamic Branding (Updated for RetailFlow) ---
+  const shopName = shopProfile.shopName || shopProfile.name || "RetailFlow";
   const shopPhone = shopProfile.phone || "+91 00000 00000";
-  const shopEmail = shopProfile.email || "hello@neodukaan.com";
-  const shopAddress = shopProfile.address || "Shop Address Here";
+  const shopEmail = shopProfile.email || "support@retailflow.com";
+  const shopAddress = shopProfile.address || "Business Address Not Configured";
   const shopLogo = shopProfile.logo || null;
   const shopSignature = shopProfile.signature || null;
   const signatoryName = shopProfile.signatoryName || "Authorized Signatory";
-  const designation = shopProfile.designation || "Admin";
-  const upiId = shopProfile.upiId || "8287035304@ptyes";
+  const designation = shopProfile.designation || "Store Manager";
+  const upiId = shopProfile.upiId || "";
 
-  const payments = sale.payments || {};
-  const upiAmount = Number(payments.upi || 0);
+  const upiAmount = Number(sale.paymentSplit?.upi || 0);
   const upiLink =
-    upiAmount > 0
+    upiAmount > 0 && upiId
       ? `upi://pay?pa=${upiId}&pn=${shopName}&am=${upiAmount}&cu=INR`
       : null;
+
+  const invoiceNum = `RF-${String(sale._id).slice(-6).toUpperCase()}`;
 
   const downloadPDF = () => {
     try {
       const doc = new jsPDF();
+      // Premium PDF Design logic
+      doc.setFillColor(79, 70, 229); // Indigo Header
+      doc.rect(0, 0, 210, 40, "F");
+
+      doc.setTextColor(255, 255, 255);
       doc.setFontSize(24);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(55, 65, 81);
-      doc.text("INVOICE", 150, 25);
+      doc.text("TAX INVOICE", 140, 25);
+
       doc.setFontSize(14);
-      doc.text(shopName, 14, 25);
+      doc.text(shopName, 14, 20);
+      doc.setFontSize(9);
+      doc.text(shopAddress, 14, 28, { maxWidth: 100 });
+
+      doc.setTextColor(40, 40, 40);
       doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-
-      if (shopProfile.gstEnabled && shopProfile.gst)
-        doc.text(`GSTIN: ${shopProfile.gst}`, 14, 32);
-      doc.text(`Phone: ${shopPhone}`, 14, shopProfile.gstEnabled ? 38 : 32);
-
-      doc.text(`Invoice No: ${sale.invoiceNumber || sale.id}`, 150, 35);
+      doc.text(`Invoice No: ${invoiceNum}`, 140, 50);
       doc.text(
-        `Invoice Date: ${new Date(sale.date).toLocaleDateString("en-IN")}`,
-        150,
-        40,
+        `Date: ${new Date(sale.createdAt).toLocaleDateString("en-IN")}`,
+        140,
+        56,
       );
 
-      const rows = sale.items.map((item, index) => [
-        String(index + 1).padStart(2, "0"),
-        item.name,
-        `Rs. ${item.sellingPrice}`,
-        item.quantity,
-        `Rs. ${item.sellingPrice * item.quantity}`,
-      ]);
-
       autoTable(doc, {
-        startY: 55,
-        head: [["#", "DESCRIPTION", "PRICE", "QUANTITY", "AMOUNT"]],
-        body: rows,
-        theme: "plain",
+        startY: 70,
+        head: [["#", "ITEM DESCRIPTION", "PRICE", "QTY", "TOTAL"]],
+        body: sale.items.map((item, i) => [
+          i + 1,
+          item.name,
+          `Rs. ${item.sellingPrice}`,
+          item.quantity,
+          `Rs. ${item.sellingPrice * item.quantity}`,
+        ]),
         headStyles: {
-          fillColor: [79, 70, 229],
+          fillColor: [30, 41, 59],
           textColor: [255, 255, 255],
           fontStyle: "bold",
-          halign: "center",
         },
-        bodyStyles: { textColor: [75, 85, 99] },
-        columnStyles: {
-          0: { halign: "center" },
-          1: { halign: "left" },
-          2: { halign: "center" },
-          3: { halign: "center" },
-          4: { halign: "center" },
-        },
-        alternateRowStyles: { fillColor: [243, 244, 246] },
+        styles: { fontSize: 9 },
       });
 
-      const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY : 100;
+      const finalY = doc.lastAutoTable.finalY;
+      doc.setFontSize(12);
+      doc.setFont(undefined, "bold");
+      doc.text(`Grand Total: Rs. ${sale.totalAmount}`, 140, finalY + 20);
 
-      doc.setFontSize(10);
-      doc.text("Sub Total:", 140, finalY + 15);
-      doc.text(`Rs. ${sale.totalAmount}`, 175, finalY + 15);
-
-      doc.setFillColor(79, 70, 229); // Indigo 600
-      doc.rect(135, finalY + 25, 60, 10, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.text("TOTAL", 140, finalY + 32);
-      doc.text(`Rs. ${sale.totalAmount}`, 175, finalY + 32);
-
-      doc.save(`${sale.invoiceNumber || sale.id}.pdf`);
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      alert("PDF Download failed. Please check console.");
+      doc.save(`${invoiceNum}.pdf`);
+      toast.success("Professional Invoice Saved!");
+    } catch (_error) {
+      toast.error("PDF Generation Failed");
     }
   };
 
   return (
-    <div className="bg-slate-100 dark:bg-[#0b1120] min-h-screen p-4 md:p-10 font-sans flex justify-center pb-28">
-      {/* INVOICE PAPER*/}
-      <div className="bg-white text-slate-900 w-full max-w-4xl shadow-2xl flex flex-col md:min-h-[297mm] print:shadow-none print:w-full">
-        {/* TOP HEADER */}
-        <div className="flex flex-col md:flex-row justify-between items-start pt-8 px-6 md:pt-16 md:px-12 gap-6">
-          <div className="flex flex-col w-full md:w-auto items-center md:items-start">
+    <div className="bg-[#0b1120] min-h-screen p-4 md:p-10 flex justify-center pb-32">
+      <div className="bg-white text-slate-900 w-full max-w-200 shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col min-h-275 rounded-sm overflow-hidden border-t-12 border-indigo-600">
+        {/* INVOICE HEADER */}
+        <div className="p-10 flex flex-col md:flex-row justify-between gap-8 border-b border-slate-100">
+          <div className="space-y-4">
             {shopLogo ? (
               <img
                 src={shopLogo}
-                alt="Shop Logo"
-                className="h-16 md:h-20 w-auto object-contain mb-2"
+                alt="Business Logo"
+                className="h-16 w-auto grayscale-[0.5] hover:grayscale-0 transition-all"
               />
             ) : (
-              <div className="bg-indigo-600 text-white w-40 md:w-48 p-4 md:p-6 flex flex-col items-center justify-center rounded-br-2xl rounded-tl-2xl">
-                <span className="text-2xl md:text-3xl font-black tracking-widest">
-                  {shopName.substring(0, 2).toUpperCase()}
-                </span>
-                <span className="text-[10px] md:text-xs mt-2 tracking-widest font-light text-center">
-                  {shopName.toUpperCase()}
-                </span>
+              <div className="w-14 h-14 bg-slate-900 text-white flex items-center justify-center rounded-xl text-2xl font-black">
+                R
               </div>
             )}
-            {shopProfile.gstEnabled && shopProfile.gst && (
-              <p className="mt-3 text-xs font-bold text-slate-500 text-center md:text-left">
-                GSTIN: {shopProfile.gst}
-              </p>
-            )}
+            <div>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                {shopName}
+              </h2>
+              <div className="mt-2 space-y-1 text-slate-500 font-semibold text-xs">
+                {shopProfile.gstEnabled && (
+                  <p className="text-indigo-600">GSTIN: {shopProfile.gst}</p>
+                )}
+                <p className="flex items-center gap-2">
+                  <Phone size={12} /> {shopPhone}
+                </p>
+                <p className="flex items-center gap-2">
+                  <Mail size={12} /> {shopEmail}
+                </p>
+                <p className="flex items-center gap-2 max-w-62.5">
+                  <MapPin size={12} /> {shopAddress}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="mt-2 md:mt-4 w-full md:w-auto text-center md:text-right">
-            <h1 className="text-4xl md:text-6xl font-black tracking-widest text-slate-200 uppercase">
-              INVOICE
-            </h1>
-          </div>
-        </div>
 
-        {/* DETAILS SECTION */}
-        <div className="flex flex-col sm:flex-row justify-between mt-10 md:mt-16 px-6 md:px-12 gap-8">
-          <div className="text-center sm:text-left">
-            <h3 className="text-xs font-bold text-slate-400 uppercase mb-2 tracking-wider">
-              Invoice To
-            </h3>
-            <h2 className="text-lg md:text-xl font-bold text-slate-900">
-              Walk-in Customer
-            </h2>
-            <div className="text-sm text-slate-500 mt-2">Cash Client</div>
-          </div>
-          <div className="text-sm text-slate-600 grid grid-cols-2 gap-x-4 gap-y-3 text-left sm:text-right">
-            <p className="font-bold text-slate-400 uppercase text-xs tracking-wider">
-              Invoice No
-            </p>
-            <p className="font-bold text-slate-900">
-              : {sale.invoiceNumber || sale.id}
-            </p>
-            <p className="font-bold text-slate-400 uppercase text-xs tracking-wider">
-              Date
-            </p>
-            <p className="font-bold text-slate-900">
-              : {new Date(sale.date).toLocaleDateString("en-IN")}
-            </p>
-            <p className="font-bold text-slate-400 uppercase text-xs tracking-wider">
-              Payment
-            </p>
-            <p className="font-bold text-slate-900">
-              : {upiAmount > 0 ? "UPI" : "Cash / Udhaar"}
-            </p>
+          <div className="text-right flex flex-col justify-between">
+            <div>
+              <h1 className="text-6xl font-black text-slate-100/80 leading-none">
+                BILL
+              </h1>
+              <div className="mt-4">
+                <p className="text-sm font-black text-slate-800 uppercase tracking-widest">
+                  Invoice Number
+                </p>
+                <p className="text-lg font-bold text-indigo-600">
+                  {invoiceNum}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <p className="text-xs font-bold text-slate-400 uppercase">
+                Date of Issue
+              </p>
+              <p className="text-sm font-bold text-slate-700">
+                {new Date(sale.createdAt).toLocaleDateString("en-IN")}
+              </p>
+            </div>
           </div>
         </div>
 
         {/* ITEMS TABLE */}
-        <div className="mt-10 md:mt-16 px-4 md:px-12 overflow-x-auto">
-          <table className="w-full text-sm text-center border-collapse min-w-125">
-            <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-xs tracking-wider border-y border-slate-300">
-              <tr>
-                <th className="py-4 w-12 text-center">#</th>
-                <th className="py-4 text-left px-4">Description</th>
-                <th className="py-4 w-24 text-right">Price</th>
-                <th className="py-4 w-20 text-center">Qty</th>
-                <th className="py-4 w-28 text-right pr-4">Amount</th>
+        <div className="px-10 py-10 flex-1">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b-2 border-slate-900 text-slate-900 font-black text-xs uppercase tracking-tighter">
+                <th className="pb-4 w-12">#</th>
+                <th className="pb-4">Description</th>
+                <th className="pb-4 text-center">Qty</th>
+                <th className="pb-4 text-right">Unit Price</th>
+                <th className="pb-4 text-right">Total</th>
               </tr>
             </thead>
-            <tbody className="text-slate-700 font-medium">
-              {sale.items.map((item, index) => (
-                <tr key={index} className="border-b border-slate-100">
-                  <td className="py-4 text-slate-400">
-                    {String(index + 1).padStart(2, "0")}
+            <tbody className="divide-y divide-slate-100">
+              {sale.items.map((item, i) => (
+                <tr key={i} className="group">
+                  <td className="py-5 text-slate-400 font-bold">{i + 1}</td>
+                  <td className="py-5">
+                    <p className="font-black text-slate-800">
+                      {item.name || "Product Item"}
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                      Retail Goods
+                    </p>
                   </td>
-                  <td className="py-4 text-left px-4 font-bold text-slate-900">
-                    {item.name}
+                  <td className="py-5 text-center font-bold text-slate-700">
+                    {item.quantity}
                   </td>
-                  <td className="py-4 text-right">₹{item.sellingPrice}</td>
-                  <td className="py-4 text-center">{item.quantity}</td>
-                  <td className="py-4 text-right pr-4 font-bold text-slate-900">
+                  <td className="py-5 text-right font-semibold text-slate-600">
+                    ₹{item.sellingPrice}
+                  </td>
+                  <td className="py-5 text-right font-black text-slate-900">
                     ₹{item.sellingPrice * item.quantity}
                   </td>
                 </tr>
@@ -210,92 +196,87 @@ const Invoice = () => {
           </table>
         </div>
 
-        {/* SUMMARY SECTION */}
-        <div className="flex flex-col md:flex-row justify-between mt-10 px-6 md:px-12 gap-8">
-          <div className="w-full md:w-1/2 flex flex-col items-center md:items-start text-center md:text-left">
-            {upiLink && (
-              <div className="mt-2 flex flex-col items-center md:items-start">
-                <p className="text-xs text-slate-400 mb-2 font-bold uppercase tracking-widest">
-                  SCAN TO PAY (UPI)
-                </p>
-                <div className="p-2 border border-slate-200 inline-block rounded-xl bg-white">
-                  <QRCodeSVG value={upiLink} size={90} />
+        {/* SUMMARY & PAYMENTS */}
+        <div className="p-10 bg-slate-50/50 border-t border-slate-100 mt-auto">
+          <div className="flex flex-col md:flex-row justify-between items-end gap-10">
+            {/* Payment Info */}
+            <div className="w-full md:w-auto">
+              {upiLink && (
+                <div className="flex items-center gap-6 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="p-1 bg-white">
+                    <QRCodeSVG value={upiLink} size={70} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">
+                      Scan to Pay
+                    </p>
+                    <p className="text-xs font-bold text-slate-500 max-w-30">
+                      Instant payment for UPI Amount: ₹{upiAmount}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-          <div className="w-full md:w-1/2 flex flex-col items-center md:items-end">
-            <div className="flex justify-between w-full max-w-62.5 py-3 text-slate-600 font-medium border-b border-slate-100">
-              <span>Sub Total</span>
-              <span>₹ {sale.totalAmount}</span>
-            </div>
-            <div className="flex justify-between w-full max-w-62.5 bg-indigo-600 text-white font-black p-4 mt-4 rounded-xl shadow-md">
-              <span>TOTAL DUE</span>
-              <span>₹ {sale.totalAmount}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* FOOTER */}
-        <div className="mt-auto pt-16 pb-8 px-6 md:px-12 flex flex-col sm:flex-row justify-between items-center sm:items-end gap-8 text-center sm:text-left">
-          <div className="w-full sm:w-1/2">
-            <h4 className="font-bold text-slate-900 mb-2">
-              Terms & Conditions
-            </h4>
-            <p className="text-xs text-slate-500 leading-relaxed max-w-sm">
-              Payment is due immediately. Goods once sold will not be taken back
-              without proper authorization. All disputes are subject to local
-              jurisdiction.
-            </p>
-          </div>
-          <div className="text-center w-full sm:w-auto">
-            <div className="w-48 h-16 border-b border-slate-300 mx-auto mb-2 relative flex justify-center items-end pb-2">
-              {shopSignature ? (
-                <img
-                  src={shopSignature}
-                  alt="Signature"
-                  className="max-h-12 w-auto object-contain mix-blend-multiply"
-                />
-              ) : (
-                <span className="text-slate-300 text-xl italic font-serif signature-font">
-                  {shopName}
-                </span>
               )}
             </div>
-            <p className="font-bold text-slate-900">{signatoryName}</p>
-            <p className="text-xs text-slate-500">{designation}</p>
-          </div>
-        </div>
 
-        {/* BOTTOM CONTACT BAR */}
-        <div className="w-full bg-slate-50 py-5 px-6 md:px-12 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 font-medium border-t border-slate-200 gap-3">
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 text-center sm:text-left">
-            <span className="flex items-center justify-center sm:justify-start gap-1">
-              📞 {shopPhone}
-            </span>
-            <span className="flex items-center justify-center sm:justify-start gap-1">
-              ✉️ {shopEmail}
-            </span>
+            {/* Calculations */}
+            <div className="w-full md:w-72 space-y-4">
+              <div className="flex justify-between items-center text-slate-500 font-bold text-sm">
+                <span>Total Items</span>
+                <span>{sale.items.length}</span>
+              </div>
+              <div className="flex justify-between items-center py-4 border-y border-slate-200">
+                <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">
+                  Amount Due
+                </span>
+                <span className="text-3xl font-black text-slate-900">
+                  ₹{sale.totalAmount}
+                </span>
+              </div>
+
+              {/* Authorized Signatory Section */}
+              <div className="pt-6 text-right">
+                <div className="h-16 flex items-end justify-end mb-2">
+                  {shopSignature ? (
+                    <img
+                      src={shopSignature}
+                      className="max-h-16 grayscale brightness-50"
+                      alt="Signature"
+                    />
+                  ) : (
+                    <div className="w-32 border-b border-dashed border-slate-300"></div>
+                  )}
+                </div>
+                <p className="text-sm font-black text-slate-900 uppercase">
+                  {signatoryName}
+                </p>
+                <p className="text-[10px] text-slate-400 font-black tracking-widest uppercase">
+                  {designation}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="w-full sm:w-1/2 text-center sm:text-right truncate">
-            📍 {shopAddress}
+
+          <div className="mt-12 text-center border-t border-slate-100 pt-6">
+            <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">
+              Generated via RetailFlow • Thank you for your business
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Floating Action Buttons */}
-      <div className="fixed bottom-6 right-6 flex flex-col sm:flex-row gap-3 print:hidden z-50">
+      {/* ACTION FABs */}
+      <div className="fixed bottom-8 right-8 flex flex-col md:flex-row gap-4 print:hidden">
         <button
           onClick={() => window.print()}
-          className="flex items-center gap-2 bg-white text-slate-900 border border-slate-200 px-6 py-3.5 rounded-xl shadow-xl font-bold hover:bg-slate-50 active:scale-95 transition-all"
+          className="bg-[#111827] text-white px-8 py-4 rounded-2xl font-black shadow-2xl hover:bg-black transition-all flex items-center gap-3 active:scale-95"
         >
-          <Printer size={18} /> Print
+          <Printer size={20} /> Print Invoice
         </button>
         <button
           onClick={downloadPDF}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3.5 rounded-xl shadow-xl shadow-indigo-600/30 font-bold hover:bg-indigo-700 active:scale-95 transition-all"
+          className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black shadow-[0_10px_30px_rgba(79,70,229,0.4)] hover:bg-indigo-500 transition-all flex items-center gap-3 active:scale-95"
         >
-          <Download size={18} /> Save PDF
+          <Download size={20} /> Save as PDF
         </button>
       </div>
     </div>

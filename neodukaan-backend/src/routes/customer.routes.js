@@ -3,7 +3,7 @@ import {
   addCustomer,
   getCustomers,
 } from "../controllers/customer.controller.js";
-import { protect } from "../middlewares/auth.middlewares.js"; // Tumhara banaya hua Bouncer
+import { protect } from "../middlewares/auth.middleware.js"; // Tumhara banaya hua Bouncer
 
 const router = express.Router();
 

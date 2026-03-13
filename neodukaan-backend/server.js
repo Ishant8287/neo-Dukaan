@@ -1,42 +1,18 @@
-import express from "express";
 import dotenv from "dotenv";
-import cors from "cors";
-import helmet from "helmet";
-import morgan from "morgan";
 import connectDB from "./src/config/db.js";
+import app from "./app.js"; // 👈 Importing the Express engine
 
-// Routes Import
-import authRoutes from "./src/routes/auth.routes.js";
-import itemRoutes from "./src/routes/item.routes.js";
-import customerRoutes from "./src/routes/customer.routes.js";
-import saleRoutes from "./src/routes/sale.routes.js";
-
-// Secrets
+// 1. Load Environment Variables
 dotenv.config();
 
+// 2. Connect to MongoDB Atlas [cite: 2, 24]
 connectDB();
 
-const app = express();
-
-// Middlewares
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
-app.use(morgan("dev"));
-
-// API Routes
-app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/items", itemRoutes);
-app.use("/api/v1/customers", customerRoutes);
-app.use("/api/v1/sales", saleRoutes);
-
-// Test Route
-app.get("/", (req, res) => {
-  res.send("NeoDukaan API is running perfectly! 🚀");
-});
-
+// 3. Start the Server
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
+  console.log( 
+    `🚀 Server listening on port ${PORT} in ${process.env.NODE_ENV} mode`,
+  );
 });

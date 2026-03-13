@@ -10,14 +10,14 @@ function Footer() {
               to="/"
               className="text-white text-2xl font-black tracking-tight flex items-center justify-center md:justify-start gap-2 hover:text-indigo-400 transition-colors"
             >
-              <div className="w-8 h-8 bg-indigo-600 rounded-[9px] flex items-center justify-center text-white text-lg shadow-md shadow-indigo-600/30">
-                N
+              <div className="w-8 h-8 bg-indigo-600 rounded-[9px] flex items-center justify-center text-white text-lg font-black shadow-md shadow-indigo-600/30">
+                R
               </div>
-              NeoDukaan
+              RetailFlow
             </Link>
-            <p className="text-slate-400 text-sm max-w-xs mx-auto md:mx-0 font-medium">
-              Smart retail & ledger management system designed to empower the
-              modern Indian shopkeeper.
+            <p className="text-slate-400 text-sm max-w-xs mx-auto md:mx-0 font-medium leading-relaxed">
+              Smart retail & inventory management system designed to empower the
+              modern Indian business owner.
             </p>
           </div>
 
@@ -87,7 +87,7 @@ function Footer() {
         </div>
 
         <div className="mt-16 pt-8 border-t border-slate-800 text-center text-slate-500 text-sm font-medium">
-          © {new Date().getFullYear()} NeoDukaan Retail Solutions. All rights
+          © {new Date().getFullYear()} RetailFlow Solutions. All rights
           reserved.
         </div>
       </div>

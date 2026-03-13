@@ -1,14 +1,22 @@
 import express from "express";
-import { register, login, getMe } from "../controllers/auth.controller.js";
-import { protect } from "../middlewares/auth.middlewares.js";
+import {
+  register,
+  sendOtp, // 👈 Added
+  verifyOtp, // 👈 Added
+  getMe,
+  updateProfile,
+} from "../controllers/auth.controller.js";
+import { protect } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-// Public Routes
 router.post("/register", register);
-router.post("/login", login);
 
+// 🚀 Naye RetailFlow Login Routes
+router.post("/send-otp", sendOtp);
+router.post("/verify-otp", verifyOtp);
 
 router.get("/me", protect, getMe);
+router.put("/profile", protect, updateProfile);
 
 export default router;

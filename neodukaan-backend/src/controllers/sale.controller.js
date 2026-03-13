@@ -11,15 +11,21 @@ export const createSale = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { customerId, items, paymentSplit } = req.body;
+    // 🚀 DHYAN DO: req.body se totalPurchasePrice aur customer nikal liya hai
+    const { customer, items, paymentSplit, totalPurchasePrice } = req.body;
     let totalAmount = 0;
+    let calculatedPurchasePrice = 0; // Fallback ke liye
 
-    //Stock Deduction Logic
+    // Stock Deduction Logic
     for (let orderItem of items) {
       const item = await Item.findOne({
         _id: orderItem.itemId,
         shop: req.shop.id,
       }).session(session);
+
+      if (!item) {
+        throw new Error(`Item ID ${orderItem.itemId} not found!`);
+      }
 
       const batch = item.batches.id(orderItem.batchId);
       if (!batch || batch.quantity < orderItem.quantity) {
@@ -30,41 +36,65 @@ export const createSale = async (req, res) => {
       await item.save({ session });
 
       totalAmount += orderItem.sellingPrice * orderItem.quantity;
+
+      // Calculate total purchase price if frontend fails to send it
+      const costPrice = orderItem.purchasePrice || batch.purchasePrice || 0;
+      calculatedPurchasePrice += costPrice * orderItem.quantity;
     }
+
     // Payment Split Validation
     const totalPaid =
       paymentSplit.cash + paymentSplit.upi + paymentSplit.udhaar;
-    if (totalPaid !== totalAmount) {
+    // Math.round lagaya taaki javascript ke floating point errors se bacha ja sake
+    if (Math.round(totalPaid) !== Math.round(totalAmount)) {
       throw new Error("Payment mismatch! Total calculation check karo.");
     }
 
     // Create Invoice (Bill)
+    const finalTotalPurchasePrice = totalPurchasePrice
+      ? totalPurchasePrice
+      : calculatedPurchasePrice;
+
+    // 🚀 Update: DB save karte time saari required fields add kar di hain
     const sale = await Sale.create(
       [
         {
           shop: req.shop.id,
-          customer: customerId || null,
-          items,
+          customer: customer || null, // 👈 'customerId' nahi, 'customer' hai backend model/payload mein
+          items: items.map((i) => ({
+            itemId: i.itemId,
+            batchId: i.batchId,
+            quantity: i.quantity,
+            sellingPrice: i.sellingPrice,
+            purchasePrice: i.purchasePrice || 0, // 👈 Required in Sale Model
+          })),
           totalAmount,
+          totalPurchasePrice: finalTotalPurchasePrice, // 👈 Required in Sale Model
           paymentSplit,
         },
       ],
       { session },
     );
 
-    //Khata (Udhaar) Update Logic
+    // Khata (Udhaar) Update Logic
     if (paymentSplit.udhaar > 0) {
-      if (!customerId)
+      if (!customer)
         throw new Error("Udhaar ke liye Customer select karna padega!");
 
-      const customer = await Customer.findById(customerId).session(session);
-      customer.totalUdhaar += paymentSplit.udhaar;
-      customer.khataHistory.push({
+      const dbCustomer = await Customer.findById(customer).session(session);
+      if (!dbCustomer) {
+        throw new Error(
+          "Udhaar ke liye Diya gaya Customer ID database mein nahi mila!",
+        );
+      }
+
+      dbCustomer.totalUdhaar += paymentSplit.udhaar;
+      dbCustomer.khataHistory.push({
         transactionType: "GIVEN_UDHAAR",
         amount: paymentSplit.udhaar,
         description: `Invoice ID: ${sale[0]._id}`,
       });
-      await customer.save({ session });
+      await dbCustomer.save({ session });
     }
 
     await session.commitTransaction();
@@ -78,6 +108,7 @@ export const createSale = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
+    console.error("Sale Creation Error:", error.message);
     res.status(400).json({ success: false, message: error.message });
   }
 };

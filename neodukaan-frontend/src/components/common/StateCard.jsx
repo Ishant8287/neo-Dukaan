@@ -1,4 +1,4 @@
-const StateCard = ({ title, value, icon: Icon, accent = "blue" }) => {
+const StateCard = ({ title, value, icon: Icon }) => {
   return (
     <div className="relative bg-[#111827] border border-slate-800 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:border-indigo-500/40 shadow-sm">
       {/* Icon with subtle background */}

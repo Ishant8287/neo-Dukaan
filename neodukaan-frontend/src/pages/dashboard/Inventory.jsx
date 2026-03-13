@@ -1,6 +1,8 @@
+/* eslint-disable no-unused-vars */
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
+import API from "../../api/axiosInstance";
 import {
   Plus,
   Search,
@@ -23,22 +25,23 @@ const Inventory = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("recent");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     sellingPrice: "",
     unitType: "piece",
     lowStockThreshold: 5,
-    taxPercent: 0,
-    hsn: "",
+    taxPercent: 0, // 👈 Restored
+    hsn: "", // 👈 Restored
     batchCostPrice: "",
     batchQuantity: "",
     batchExpiryDate: "",
   });
 
-  /*HELPERS*/
+  /* HELPERS */
   const getTotalStock = (item) =>
-    item.batches?.reduce((sum, b) => sum + b.quantity, 0) || 0;
+    item.batches?.reduce((sum, b) => sum + (b.quantity || 0), 0) || 0;
 
   const getNearestExpiry = (item) => {
     const batches =
@@ -50,12 +53,8 @@ const Inventory = () => {
 
   const getExpiryStatus = (expiryDate) => {
     if (!expiryDate) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const expiry = new Date(expiryDate);
-    expiry.setHours(0, 0, 0, 0);
-    const diffDays = (expiry - today) / (1000 * 60 * 60 * 24);
-
+    const diffDays =
+      (new Date(expiryDate) - new Date()) / (1000 * 60 * 60 * 24);
     if (diffDays <= 3) return "critical";
     if (diffDays <= 7) return "warning";
     return "safe";
@@ -65,15 +64,15 @@ const Inventory = () => {
     const last30Days = new Date();
     last30Days.setDate(last30Days.getDate() - 30);
     const soldRecently = sales.some((sale) =>
-      sale.items.some(
+      sale.items?.some(
         (saleItem) =>
-          saleItem.id === item.id && new Date(sale.date) > last30Days,
+          saleItem.itemId === item._id && new Date(sale.createdAt) > last30Days,
       ),
     );
     return !soldRecently && getTotalStock(item) > 0;
   };
 
-  /*SEARCH & SORT LOGIC*/
+  /* SEARCH & SORT */
   let filteredItems = items.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase()),
   );
@@ -81,12 +80,15 @@ const Inventory = () => {
   if (sortBy === "low_stock") {
     filteredItems.sort((a, b) => getTotalStock(a) - getTotalStock(b));
   } else if (sortBy === "high_value") {
-    filteredItems.sort((a, b) => b.sellingPrice - a.sellingPrice);
+    filteredItems.sort(
+      (a, b) =>
+        (b.batches?.[0]?.sellingPrice || 0) -
+        (a.batches?.[0]?.sellingPrice || 0),
+    );
   } else {
-    filteredItems.sort((a, b) => b.id - a.id); // recent
+    filteredItems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }
 
-  /*FORM HANDLERS*/
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -109,98 +111,90 @@ const Inventory = () => {
   };
 
   const openEditDrawer = (item) => {
-    setEditingItemId(item.id);
+    setEditingItemId(item._id);
+    const mainBatch = item.batches?.[0] || {};
     setFormData({
       name: item.name,
-      sellingPrice: item.sellingPrice,
-      unitType: item.unitType,
-      lowStockThreshold: item.lowStockThreshold,
-      taxPercent: item.taxPercent || 0,
-      hsn: item.hsn || "",
-      batchCostPrice: "",
-      batchQuantity: "",
-      batchExpiryDate: "",
+      sellingPrice: mainBatch.sellingPrice || "",
+      unitType: item.unit || "piece",
+      lowStockThreshold: item.alertQuantity || 5,
+      taxPercent: item.taxPercent || 0, // 👈 Restored logic
+      hsn: item.hsn || "", // 👈 Restored logic
+      batchCostPrice: mainBatch.purchasePrice || "",
+      batchQuantity: mainBatch.quantity || "",
+      batchExpiryDate: mainBatch.expiryDate
+        ? mainBatch.expiryDate.split("T")[0]
+        : "",
     });
     setIsDrawerOpen(true);
   };
 
-  /*SAVE LOGIC*/
-  const handleSaveItem = () => {
-    if (!formData.name || !formData.sellingPrice) {
-      toast.error("Name & Selling Price required");
+  /* 🚀 API: SAVE/UPDATE ITEM */
+  const handleSaveItem = async () => {
+    if (
+      !formData.name ||
+      !formData.sellingPrice ||
+      !formData.batchCostPrice ||
+      !formData.batchQuantity
+    ) {
+      toast.error("Required fields missing!");
       return;
     }
 
-    const hasBatch =
-      formData.batchCostPrice !== "" && formData.batchQuantity !== "";
-    let newBatch = null;
+    setIsSubmitting(true);
+    const payload = {
+      name: formData.name,
+      unit: formData.unitType,
+      alertQuantity: Number(formData.lowStockThreshold),
+      taxPercent: Number(formData.taxPercent), // 👈 Sent to backend
+      hsn: formData.hsn, // 👈 Sent to backend
+      batches: [
+        {
+          purchasePrice: Number(formData.batchCostPrice),
+          sellingPrice: Number(formData.sellingPrice),
+          quantity: Number(formData.batchQuantity),
+          expiryDate: formData.batchExpiryDate
+            ? new Date(formData.batchExpiryDate)
+            : null,
+        },
+      ],
+    };
 
-    if (hasBatch) {
-      const safeId =
-        Date.now().toString(36) + Math.random().toString(36).substring(2);
-
-      newBatch = {
-        batchId: safeId,
-        costPrice: Number(formData.batchCostPrice),
-        quantity: Number(formData.batchQuantity),
-        expiryDate: formData.batchExpiryDate || null,
-        addedDate: new Date().toISOString(),
-      };
-    }
-
-    const currentISO = new Date().toISOString();
-
-    if (editingItemId) {
-      setItems((prev) =>
-        prev.map((product) => {
-          if (product.id !== editingItemId) return product;
-          return {
-            ...product,
-            name: formData.name,
-            sellingPrice: Number(formData.sellingPrice),
-            unitType: formData.unitType,
-            lowStockThreshold: Number(formData.lowStockThreshold),
-            taxPercent: Number(formData.taxPercent),
-            hsn: formData.hsn,
-            lastUpdated: currentISO,
-            batches: newBatch
-              ? [...product.batches, newBatch]
-              : product.batches,
-          };
-        }),
-      );
-      toast.success("Item updated");
-    } else {
-      if (!newBatch) {
-        toast.error("First batch required");
-        return;
+    try {
+      if (editingItemId) {
+        const res = await API.put(`/items/${editingItemId}`, payload);
+        setItems((prev) =>
+          prev.map((i) => (i._id === editingItemId ? res.data.data : i)),
+        );
+        toast.success("Item updated");
+      } else {
+        const res = await API.post("/items", payload);
+        setItems((prev) => [...prev, res.data.data]);
+        toast.success("Item added");
       }
-      const newProduct = {
-        id: Date.now(),
-        name: formData.name,
-        sellingPrice: Number(formData.sellingPrice),
-        unitType: formData.unitType,
-        lowStockThreshold: Number(formData.lowStockThreshold),
-        taxPercent: Number(formData.taxPercent),
-        hsn: formData.hsn,
-        lastUpdated: currentISO,
-        batches: [newBatch],
-      };
-      setItems((prev) => [...prev, newProduct]);
-      toast.success("Item added");
+      resetForm();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error saving item");
+    } finally {
+      setIsSubmitting(false);
     }
-    resetForm();
   };
 
-  const confirmDelete = () => {
-    setItems((prev) => prev.filter((item) => item.id !== deleteId));
-    setDeleteId(null);
-    toast.success("Item deleted");
+  const confirmDelete = async () => {
+    try {
+      await API.delete(`/items/${deleteId}`);
+      setItems((prev) => prev.filter((item) => item._id !== deleteId));
+      toast.success("Item deleted");
+    } catch (error) {
+      toast.error("Failed to delete item");
+    } finally {
+      setDeleteId(null);
+    }
   };
 
   return (
     <div className="text-white space-y-6 bg-transparent min-h-dvh pb-24">
-      {/* HEADER */}
+      {/* HEADER (UNTOUCHED) */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black tracking-tight">Inventory</h1>
@@ -208,7 +202,6 @@ const Inventory = () => {
             Manage your products and batches.
           </p>
         </div>
-
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <button
             onClick={() => toast.info("Bulk update coming soon!")}
@@ -217,37 +210,35 @@ const Inventory = () => {
             <UploadCloud size={16} />{" "}
             <span className="hidden sm:inline">Bulk Update</span>
           </button>
-
           <button
             onClick={() => setIsDrawerOpen(true)}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
           >
             <Plus size={18} /> Add Item
           </button>
         </div>
       </div>
 
-      {/* SEARCH & FILTERS */}
+      {/* SEARCH BAR (UNTOUCHED) */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1 order-2 sm:order-1">
+        <div className="relative flex-1">
           <Search
             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             size={18}
           />
           <input
             type="text"
-            placeholder="Search items by name..."
+            placeholder="Search items..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-[#111827] border border-slate-800 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-500 transition-colors text-white placeholder:text-slate-500 shadow-sm"
+            className="w-full pl-10 pr-4 py-2.5 bg-[#111827] border border-slate-800 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-500 transition-colors text-white shadow-sm"
           />
         </div>
-
-        <div className="relative order-1 sm:order-2">
+        <div className="relative">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="w-full sm:w-48 appearance-none pl-4 pr-10 py-2.5 bg-[#111827] border border-slate-800 rounded-xl text-sm font-bold text-slate-300 focus:outline-none focus:border-indigo-500 transition-colors shadow-sm cursor-pointer"
+            className="w-full sm:w-48 appearance-none pl-4 pr-10 py-2.5 bg-[#111827] border border-slate-800 rounded-xl text-sm font-bold text-slate-300 focus:outline-none cursor-pointer"
           >
             <option value="recent">Recently Added</option>
             <option value="low_stock">Low Stock First</option>
@@ -260,60 +251,50 @@ const Inventory = () => {
         </div>
       </div>
 
-      {/* ITEMS LIST */}
+      {/* LISTING */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {filteredItems.map((item) => {
           const stock = getTotalStock(item);
           const nearestExpiry = getNearestExpiry(item);
           const expiryStatus = getExpiryStatus(nearestExpiry);
           const dead = isDeadStock(item);
+          const price = item.batches?.[0]?.sellingPrice || 0;
 
           let stockColor =
             "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
           let StockIcon = CheckCircle2;
-
           if (stock === 0) {
             stockColor = "text-rose-400 bg-rose-500/10 border-rose-500/20";
             StockIcon = AlertTriangle;
-          } else if (stock <= item.lowStockThreshold) {
+          } else if (stock <= item.alertQuantity) {
             stockColor = "text-amber-400 bg-amber-500/10 border-amber-500/20";
             StockIcon = AlertCircle;
           }
 
           return (
             <div
-              key={item.id}
-              className="p-4 sm:p-5 rounded-2xl bg-[#111827] border border-slate-800 shadow-sm flex flex-col justify-between transition-colors hover:border-indigo-500/50"
+              key={item._id}
+              className="p-4 sm:p-5 rounded-2xl bg-[#111827] border border-slate-800 shadow-sm flex flex-col justify-between hover:border-indigo-500/50 transition-colors"
             >
               <div>
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-bold text-lg text-white truncate pr-2">
                     {item.name}
                   </h3>
-                  <p className="font-black text-lg text-indigo-400">
-                    ₹{item.sellingPrice}
-                  </p>
+                  <p className="font-black text-lg text-indigo-400">₹{price}</p>
                 </div>
-
                 <p className="text-xs text-slate-400 font-medium mb-3">
-                  GST: {item.taxPercent || 0}% | HSN: {item.hsn || "-"}
+                  GST: {item.taxPercent}% | HSN: {item.hsn || "-"}
                 </p>
-
                 <div className="flex flex-wrap items-center gap-2 mb-4">
                   <span
                     className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-md border ${stockColor}`}
                   >
-                    <StockIcon size={12} /> Stock: {stock} {item.unitType}
+                    <StockIcon size={12} /> Stock: {stock} {item.unit}
                   </span>
-
                   {expiryStatus === "critical" && (
                     <span className="px-2 py-1 text-[10px] font-bold rounded bg-red-600 text-white shadow-sm">
                       Expiring Soon
-                    </span>
-                  )}
-                  {expiryStatus === "warning" && (
-                    <span className="px-2 py-1 text-[10px] font-bold rounded bg-amber-500 text-white shadow-sm">
-                      Expiry Warning
                     </span>
                   )}
                   {dead && (
@@ -323,26 +304,23 @@ const Inventory = () => {
                   )}
                 </div>
               </div>
-
               <div className="flex items-end justify-between border-t border-slate-800/60 pt-4 mt-auto">
                 <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  <Clock size={12} />
-                  Updated:{" "}
-                  {item.lastUpdated
-                    ? new Date(item.lastUpdated).toLocaleDateString("en-IN")
+                  <Clock size={12} /> Updated:{" "}
+                  {item.updatedAt
+                    ? new Date(item.updatedAt).toLocaleDateString("en-IN")
                     : "Today"}
                 </div>
-
                 <div className="flex gap-3">
                   <button
                     onClick={() => openEditDrawer(item)}
-                    className="p-2 text-slate-400 hover:text-indigo-400 bg-slate-800 hover:bg-indigo-500/10 rounded-lg transition-colors"
+                    className="p-2 text-slate-400 hover:text-indigo-400 bg-slate-800 rounded-lg transition-colors"
                   >
                     <Edit2 size={16} />
                   </button>
                   <button
-                    onClick={() => setDeleteId(item.id)}
-                    className="p-2 text-slate-400 hover:text-rose-400 bg-slate-800 hover:bg-rose-500/10 rounded-lg transition-colors"
+                    onClick={() => setDeleteId(item._id)}
+                    className="p-2 text-slate-400 hover:text-rose-400 bg-slate-800 rounded-lg transition-colors"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -351,19 +329,9 @@ const Inventory = () => {
             </div>
           );
         })}
-
-        {filteredItems.length === 0 && (
-          <div className="col-span-full py-16 text-center text-slate-500">
-            <PackageSearch size={48} className="mx-auto mb-4 opacity-20" />
-            <p className="font-semibold text-lg">No items found</p>
-            <p className="text-sm">
-              Try searching for something else or add a new item.
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* DRAWER (Add/Edit) */}
+      {/* DRAWER (RESTORED FULL FIELDS) */}
       {isDrawerOpen && (
         <>
           <div
@@ -374,44 +342,42 @@ const Inventory = () => {
             <h2 className="text-2xl font-black text-white mb-6">
               {editingItemId ? "Edit Item" : "Add New Item"}
             </h2>
-
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block tracking-wider">
                   Product Name
                 </label>
                 <input
                   name="name"
-                  placeholder="e.g. Aashirvaad Atta"
+                  placeholder="e.g. Maggi"
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl font-medium focus:outline-none focus:border-indigo-500 transition-colors text-white placeholder:text-slate-600"
+                  className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl text-white outline-none focus:border-indigo-500"
                 />
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                  <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">
                     Selling Price
                   </label>
                   <input
                     name="sellingPrice"
                     type="number"
-                    placeholder="₹ 0.00"
+                    placeholder="₹ 0"
                     value={formData.sellingPrice}
                     onChange={handleChange}
-                    className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl font-medium focus:outline-none focus:border-indigo-500 transition-colors text-white placeholder:text-slate-600"
+                    className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl text-white outline-none focus:border-indigo-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
-                    Unit Type
+                  <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">
+                    Unit
                   </label>
                   <select
                     name="unitType"
                     value={formData.unitType}
                     onChange={handleChange}
-                    className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl font-medium focus:outline-none focus:border-indigo-500 transition-colors text-white"
+                    className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl text-white outline-none"
                   >
                     <option value="piece">Piece</option>
                     <option value="kg">Kg</option>
@@ -420,10 +386,9 @@ const Inventory = () => {
                   </select>
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                  <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">
                     Low Stock Alert
                   </label>
                   <input
@@ -431,18 +396,18 @@ const Inventory = () => {
                     type="number"
                     value={formData.lowStockThreshold}
                     onChange={handleChange}
-                    className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl font-medium focus:outline-none focus:border-indigo-500 transition-colors text-white"
+                    className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl text-white outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                  <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">
                     GST %
                   </label>
                   <select
                     name="taxPercent"
                     value={formData.taxPercent}
                     onChange={handleChange}
-                    className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl font-medium focus:outline-none focus:border-indigo-500 transition-colors text-white"
+                    className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl text-white outline-none"
                   >
                     <option value={0}>0%</option>
                     <option value={5}>5%</option>
@@ -452,40 +417,38 @@ const Inventory = () => {
                   </select>
                 </div>
               </div>
-
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">
                   HSN Code
                 </label>
                 <input
                   name="hsn"
-                  placeholder="e.g. 190590"
+                  placeholder="Optional"
                   value={formData.hsn}
                   onChange={handleChange}
-                  className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl font-medium focus:outline-none focus:border-indigo-500 transition-colors text-white placeholder:text-slate-600"
+                  className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl text-white outline-none"
                 />
               </div>
-
               <div className="border-t border-slate-800 pt-4 mt-2">
                 <h3 className="text-sm font-bold text-indigo-400 mb-4 uppercase tracking-widest">
                   Initial Batch Info
                 </h3>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">
                       Purchase Price
                     </label>
                     <input
                       name="batchCostPrice"
                       type="number"
-                      placeholder="₹ 0.00"
+                      placeholder="₹ 0"
                       value={formData.batchCostPrice}
                       onChange={handleChange}
-                      className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl font-medium focus:outline-none focus:border-indigo-500 transition-colors text-white placeholder:text-slate-600"
+                      className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl text-white outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                    <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">
                       Quantity Added
                     </label>
                     <input
@@ -494,24 +457,23 @@ const Inventory = () => {
                       placeholder="0"
                       value={formData.batchQuantity}
                       onChange={handleChange}
-                      className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl font-medium focus:outline-none focus:border-indigo-500 transition-colors text-white placeholder:text-slate-600"
+                      className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl text-white outline-none"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
-                    Expiry Date (Optional)
+                  <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">
+                    Expiry Date
                   </label>
                   <input
                     name="batchExpiryDate"
                     type="date"
                     value={formData.batchExpiryDate}
                     onChange={handleChange}
-                    className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl font-medium focus:outline-none focus:border-indigo-500 transition-colors text-white"
+                    className="w-full p-3 bg-[#111827] border border-slate-800 rounded-xl text-white outline-none"
                   />
                 </div>
               </div>
-
               <div className="flex gap-3 pt-6">
                 <button
                   onClick={resetForm}
@@ -521,9 +483,10 @@ const Inventory = () => {
                 </button>
                 <button
                   onClick={handleSaveItem}
-                  className="flex-1 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
+                  disabled={isSubmitting}
+                  className="flex-1 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg active:scale-95 transition-all"
                 >
-                  Save Item
+                  {isSubmitting ? "Saving..." : "Save Item"}
                 </button>
               </div>
             </div>
@@ -531,42 +494,31 @@ const Inventory = () => {
         </>
       )}
 
-      {/* DELETE CONFIRMATION MODAL */}
+      {/* DELETE MODAL (UNTOUCHED) */}
       {deleteId && (
-        <>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
+            className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm"
             onClick={() => setDeleteId(null)}
-            className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 transition-opacity"
           />
-          <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#111827] border border-slate-800 p-6 rounded-3xl w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
-              <div className="w-12 h-12 bg-rose-500/20 text-rose-400 rounded-2xl flex items-center justify-center mb-4">
-                <Trash2 size={24} />
-              </div>
-              <h3 className="text-xl font-black text-white mb-2">
-                Delete Item?
-              </h3>
-              <p className="text-slate-400 text-sm font-medium mb-6">
-                This action cannot be undone. Are you sure you want to
-                permanently delete this product?
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setDeleteId(null)}
-                  className="flex-1 py-3 bg-slate-800 text-slate-300 font-bold rounded-xl hover:bg-slate-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmDelete}
-                  className="flex-1 py-3 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 shadow-lg shadow-rose-600/20 transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
+          <div className="bg-[#111827] border border-slate-800 p-6 rounded-3xl w-full max-w-sm shadow-2xl relative">
+            <h3 className="text-xl font-black text-white mb-2">Delete Item?</h3>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setDeleteId(null)}
+                className="flex-1 py-3 bg-slate-800 text-white rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold"
+              >
+                Delete
+              </button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

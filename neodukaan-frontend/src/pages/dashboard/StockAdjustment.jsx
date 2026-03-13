@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
+import API from "../../api/axiosInstance"; // 👈 Added API
 import {
   PackageMinus,
   ArrowDown,
@@ -15,16 +16,21 @@ const StockAdjustment = () => {
   const [type, setType] = useState("add");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const selectedItem = items.find((item) => item.id === Number(selectedItemId));
+  // 🛡️ Find item using MongoDB _id
+  const selectedItem = items.find((item) => item._id === selectedItemId);
+
   const getTotalStock = (item) =>
-    item?.batches?.reduce((sum, b) => sum + b.quantity, 0) || 0;
+    item?.batches?.reduce((sum, b) => sum + (b.quantity || 0), 0) || 0;
 
-  const handleAdjustment = () => {
+  /* 🚀 API INTEGRATION LOGIC */
+  const handleAdjustment = async () => {
     if (!selectedItemId || !quantity || quantity <= 0) {
       toast.error("Please select item and valid quantity");
       return;
     }
+
     const qty = Number(quantity);
     const currentStock = getTotalStock(selectedItem);
 
@@ -36,49 +42,61 @@ const StockAdjustment = () => {
       return;
     }
 
-    setItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== Number(selectedItemId)) return item;
-        let updatedBatches = [...item.batches];
+    setIsSubmitting(true);
 
-        if (type === "add") {
-          updatedBatches.push({
-            batchId: crypto.randomUUID(),
-            costPrice: 0,
-            quantity: qty,
-            expiryDate: null,
-            addedDate: new Date().toISOString(),
-          });
-        } else {
-          let remaining = qty;
-          updatedBatches = updatedBatches.map((batch) => {
-            if (remaining <= 0) return batch;
-            const deduct = Math.min(batch.quantity, remaining);
-            remaining -= deduct;
-            return { ...batch, quantity: batch.quantity - deduct };
-          });
-        }
+    // 🧠 Lead Dev Logic: Prepare updated batches locally first
+    let updatedBatches = [...selectedItem.batches];
+    if (type === "add") {
+      updatedBatches.push({
+        purchasePrice: 0, // Manual adjustment batch
+        sellingPrice: selectedItem.batches?.[0]?.sellingPrice || 0,
+        quantity: qty,
+        addedDate: new Date().toISOString(),
+      });
+    } else {
+      let remaining = qty;
+      updatedBatches = updatedBatches.map((batch) => {
+        if (remaining <= 0) return batch;
+        const deduct = Math.min(batch.quantity, remaining);
+        remaining -= deduct;
+        return { ...batch, quantity: batch.quantity - deduct };
+      });
+    }
 
-        const adjustmentEntry = {
-          id: Date.now(),
-          type,
-          quantity: qty,
-          reason,
-          date: new Date().toISOString(),
-        };
+    // Prepare adjustment history entry
+    const adjustmentEntry = {
+      type,
+      quantity: qty,
+      reason: reason || "Manual Adjustment",
+      date: new Date().toISOString(),
+    };
 
-        return {
-          ...item,
-          batches: updatedBatches.filter((b) => b.quantity > 0),
-          adjustments: item.adjustments
-            ? [adjustmentEntry, ...item.adjustments]
-            : [adjustmentEntry],
-        };
-      }),
-    );
-    toast.success("Stock adjusted successfully");
-    setQuantity("");
-    setReason("");
+    try {
+      // Hit backend to update item with new batches and adjustments array
+      const res = await API.put(`/items/${selectedItemId}`, {
+        batches: updatedBatches.filter((b) => b.quantity > 0),
+        adjustments: selectedItem.adjustments
+          ? [adjustmentEntry, ...selectedItem.adjustments]
+          : [adjustmentEntry],
+      });
+
+      // Update Global State
+      setItems((prev) =>
+        prev.map((item) =>
+          item._id === selectedItemId ? res.data.data : item,
+        ),
+      );
+
+      toast.success(
+        `Stock ${type === "add" ? "increased" : "reduced"} successfully!`,
+      );
+      setQuantity("");
+      setReason("");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to sync adjustment");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getBadgeStyle = (type) => {
@@ -111,17 +129,17 @@ const StockAdjustment = () => {
 
           <div className="space-y-5">
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+              <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">
                 Select Item
               </label>
               <select
                 value={selectedItemId}
                 onChange={(e) => setSelectedItemId(e.target.value)}
-                className="w-full p-3 bg-[#0b1120] border border-slate-700 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-500 transition-colors text-white"
+                className="w-full p-3 bg-[#0b1120] border border-slate-700 rounded-xl text-sm font-bold text-white outline-none focus:border-indigo-500"
               >
                 <option value="">-- Choose Item --</option>
                 {items.map((item) => (
-                  <option key={item.id} value={item.id}>
+                  <option key={item._id} value={item._id}>
                     {item.name} (In Stock: {getTotalStock(item)})
                   </option>
                 ))}
@@ -130,13 +148,13 @@ const StockAdjustment = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">
                   Type
                 </label>
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
-                  className="w-full p-3 bg-[#0b1120] border border-slate-700 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-500 transition-colors text-white"
+                  className="w-full p-3 bg-[#0b1120] border border-slate-700 rounded-xl text-sm font-bold text-white outline-none focus:border-indigo-500"
                 >
                   <option value="add">Add Stock (+)</option>
                   <option value="reduce">Reduce Stock (-)</option>
@@ -145,7 +163,7 @@ const StockAdjustment = () => {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+                <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">
                   Quantity
                 </label>
                 <input
@@ -153,29 +171,30 @@ const StockAdjustment = () => {
                   placeholder="0"
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
-                  className="w-full p-3 bg-[#0b1120] border border-slate-700 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-500 transition-colors text-white"
+                  className="w-full p-3 bg-[#0b1120] border border-slate-700 rounded-xl text-sm font-bold text-white outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">
+              <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">
                 Reason (Optional)
               </label>
               <textarea
                 rows="2"
-                placeholder="e.g. Found extra in godown"
+                placeholder="e.g. Found damaged during shifting"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full p-3 bg-[#0b1120] border border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-500 transition-colors resize-none text-white placeholder:text-slate-600"
+                className="w-full p-3 bg-[#0b1120] border border-slate-700 rounded-xl text-sm font-medium focus:border-indigo-500 resize-none text-white placeholder:text-slate-600"
               />
             </div>
 
             <button
               onClick={handleAdjustment}
+              disabled={isSubmitting}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-black shadow-lg shadow-indigo-600/20 active:scale-95 transition-all mt-4"
             >
-              Apply Adjustment
+              {isSubmitting ? "Updating Database..." : "Apply Adjustment"}
             </button>
           </div>
         </div>
@@ -185,7 +204,6 @@ const StockAdjustment = () => {
           <h2 className="text-lg font-bold mb-6 text-white">
             Recent Adjustments
           </h2>
-
           {!selectedItem ? (
             <div className="text-center text-slate-500 py-10 opacity-70">
               <PackageMinus size={40} className="mx-auto mb-2" />
@@ -195,10 +213,10 @@ const StockAdjustment = () => {
             </div>
           ) : selectedItem.adjustments?.length > 0 ? (
             <div className="space-y-4 max-h-100 overflow-y-auto pr-2">
-              {selectedItem.adjustments.map((adj) => (
+              {selectedItem.adjustments.map((adj, index) => (
                 <div
-                  key={adj.id}
-                  className="flex gap-4 p-4 bg-slate-800/50 border border-slate-700/50 rounded-2xl items-start transition-colors"
+                  key={index}
+                  className="flex gap-4 p-4 bg-slate-800/50 border border-slate-700/50 rounded-2xl items-start"
                 >
                   <div
                     className={`mt-1 shrink-0 w-8 h-8 rounded-full flex items-center justify-center border ${getBadgeStyle(adj.type)}`}
@@ -211,7 +229,6 @@ const StockAdjustment = () => {
                       <AlertTriangle size={14} />
                     )}
                   </div>
-
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
                       <p className="font-bold text-white capitalize text-sm">
@@ -222,8 +239,7 @@ const StockAdjustment = () => {
                       </span>
                     </div>
                     <p className="text-sm font-black mt-0.5 text-slate-300">
-                      {adj.type === "add" ? "+" : "-"}
-                      {adj.quantity} Items
+                      {adj.type === "add" ? "+" : "-"} {adj.quantity} Items
                     </p>
                     {adj.reason && (
                       <p className="text-xs text-slate-400 font-medium mt-1.5 flex items-start gap-1">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 
 /*PUBLIC PAGES*/
@@ -23,6 +23,17 @@ import Khata from "./pages/dashboard/Khata";
 import Reports from "./pages/dashboard/Reports";
 import StockAdjustment from "./pages/dashboard/StockAdjustment";
 import Profile from "./pages/dashboard/Profile";
+
+/*SECURITY GUARD COMPONENT */
+const ProtectedRoute = ({ children }) => {
+  const token = localStorage.getItem("neodukaan_token");
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
 
 /*SAFE PARSE*/
 const safeParse = (value, fallback) => {
@@ -113,23 +124,27 @@ const App = () => {
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
 
+        {/* Auth Routes */}
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
 
+        {/*PROTECTED DASHBOARD ROUTES */}
         <Route
           path="/dashboard"
           element={
-            <DashboardLayout
-              items={items}
-              setItems={setItems}
-              sales={sales}
-              setSales={setSales}
-              shopProfile={shopProfile}
-              setShopProfile={setShopProfile}
-              customers={customers}
-              setCustomers={setCustomers}
-              resetAppData={resetAppData}
-            />
+            <ProtectedRoute>
+              <DashboardLayout
+                items={items}
+                setItems={setItems}
+                sales={sales}
+                setSales={setSales}
+                shopProfile={shopProfile}
+                setShopProfile={setShopProfile}
+                customers={customers}
+                setCustomers={setCustomers}
+                resetAppData={resetAppData}
+              />
+            </ProtectedRoute>
           }
         >
           <Route index element={<DashboardHome />} />

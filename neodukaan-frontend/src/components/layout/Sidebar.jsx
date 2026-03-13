@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   X,
   LayoutDashboard,
@@ -8,10 +8,13 @@ import {
   Settings,
   FileText,
   Settings2,
+  LogOut,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
@@ -27,9 +30,16 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     { name: "Settings", path: "/dashboard/settings", icon: Settings },
   ];
 
+  const handleLogout = () => {
+    // 🚀 LEAD DEV: Updated keys for RetailFlow branding
+    localStorage.removeItem("retailflow_token");
+    localStorage.removeItem("retailflow_shop");
+    toast.success("Logged out from RetailFlow 👋");
+    navigate("/login");
+  };
+
   return (
     <>
-      {/* Overlay (Mobile Only) */}
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
@@ -37,17 +47,12 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         />
       )}
 
-      {/* Added transition-colors duration-300 for smooth theme switch */}
       <div
-        className={`fixed md:static top-0 left-0 h-screen w-64 
-        bg-[#0f172a] border-r border-slate-800/50 p-4 sm:p-5 
-        transform transition-all duration-300 z-50 flex flex-col shadow-2xl md:shadow-none
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
+        className={`fixed md:static top-0 left-0 h-screen w-64 bg-[#0f172a] border-r border-slate-800/50 p-4 sm:p-5 transform transition-all duration-300 z-50 flex flex-col shadow-2xl md:shadow-none ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
-        {/* Mobile Header */}
         <div className="flex justify-between items-center mb-8 md:hidden">
-          <h2 className="text-lg font-bold text-white transition-colors duration-300">
-            Menu
+          <h2 className="text-lg font-bold text-white tracking-tight">
+            RetailFlow Menu
           </h2>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -57,22 +62,21 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           </button>
         </div>
 
-        {/* Logo */}
+        {/* 🚀 LOGO REBRANDED TO RETAILFLOW */}
         <Link
           to="/"
           onClick={() => setSidebarOpen(false)}
           className="flex items-center gap-3 mb-8 px-2 group cursor-pointer"
         >
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white shadow-md shadow-indigo-600/20 group-hover:scale-105 transition-transform">
-            N
+          <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-white shadow-lg shadow-indigo-600/30 group-hover:scale-110 transition-transform">
+            RF
           </div>
           <h1 className="text-xl font-black text-white tracking-tight group-hover:text-indigo-400 transition-colors duration-300">
-            NeoDukaan
+            RetailFlow
           </h1>
         </Link>
 
-        {/* Nav Links */}
-        <nav className="space-y-1.5 flex-1 overflow-y-auto">
+        <nav className="space-y-1.5 flex-1 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => {
             const isActive =
               item.path === "/dashboard"
@@ -84,24 +88,31 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors duration-300 text-sm font-semibold
-                  ${
-                    isActive
-                      ? "bg-indigo-500/10 text-indigo-400"
-                      : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
-                  }`}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 text-sm font-bold ${
+                  isActive
+                    ? "bg-indigo-500/10 text-indigo-400 shadow-sm"
+                    : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                }`}
               >
                 <item.icon
                   size={18}
-                  className={`transition-colors duration-300 ${
-                    isActive ? "text-indigo-400" : "text-slate-500"
-                  }`}
+                  className={`transition-colors duration-300 ${isActive ? "text-indigo-400" : "text-slate-500"}`}
                 />
                 {item.name}
               </Link>
             );
           })}
         </nav>
+
+        <div className="pt-4 border-t border-slate-800/50 mt-auto">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all duration-300 text-sm font-black text-rose-400 hover:bg-rose-500/10 hover:text-rose-300"
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
       </div>
     </>
   );

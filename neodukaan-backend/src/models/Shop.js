@@ -26,30 +26,45 @@ const shopSchema = new mongoose.Schema(
       minlength: 6,
       select: false,
     },
-    phone: {
-      type: String,
-      required: [true, "Phone number is required"],
-    },
-    isPremium: {
-      type: Boolean,
-      default: false,
-    },
+    phone: { type: String, required: [true, "Phone number is required"] },
+    avatar: { type: String, default: null },
+
+    // 🚀 NEW: OTP Fields for Login
+    otp: { type: String, default: null },
+    otpExpires: { type: Date, default: null },
+
+    // --- Business Settings Fields ---
+    address: { type: String, default: "" },
+    gstEnabled: { type: Boolean, default: false },
+    gst: { type: String, default: "" },
+    upiId: { type: String, default: "" },
+    bankName: { type: String, default: "" },
+    accountNumber: { type: String, default: "" },
+    ifsc: { type: String, default: "" },
+    signatoryName: { type: String, default: "" },
+    designation: { type: String, default: "" },
+    logo: { type: String, default: null },
+    signature: { type: String, default: null },
+    isPremium: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
 
+// Password Hashing
 shopSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
+// JWT Token Generation
 shopSchema.methods.getSignedJwtToken = function () {
   return jwt.sign({ id: this._id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE,
   });
 };
 
+// Password Comparison
 shopSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
