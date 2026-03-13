@@ -1,9 +1,7 @@
 import Shop from "../models/Shop.js";
 import Staff from "../models/Staff.js";
 import bcrypt from "bcryptjs";
-import nodemailer from "nodemailer";
-import dns from "dns";
-dns.setDefaultResultOrder("ipv4first");
+import { Resend } from "resend";
 
 const sanitizeShop = (shop) => {
   const obj = shop.toObject ? shop.toObject() : { ...shop };
@@ -15,17 +13,9 @@ const sanitizeShop = (shop) => {
 };
 
 const sendEmail = async (to, subject, html) => {
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER?.trim(),
-      pass: process.env.EMAIL_PASS?.trim(),
-    },
-  });
-  await transporter.sendMail({
-    from: `"RetailFlow" <${process.env.EMAIL_USER}>`,
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: "RetailFlow <onboarding@resend.dev>",
     to,
     subject,
     html,
@@ -53,12 +43,10 @@ export const register = async (req, res) => {
 
     const shopExists = await Shop.findOne({ email });
     if (shopExists)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "An account with this email already exists.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "An account with this email already exists.",
+      });
 
     const shop = await Shop.create({
       ownerName,
@@ -81,12 +69,10 @@ export const sendOtp = async (req, res) => {
   try {
     const { contactMethod, contactValue } = req.body;
     if (!contactMethod || !contactValue)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Contact method and value are required.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Contact method and value are required.",
+      });
 
     const query =
       contactMethod === "email"
@@ -94,12 +80,10 @@ export const sendOtp = async (req, res) => {
         : { phone: contactValue };
     const shop = await Shop.findOne(query);
     if (!shop)
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "No RetailFlow account found with this detail.",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "No RetailFlow account found with this detail.",
+      });
 
     const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
     console.log(`\n=========================================`);
@@ -130,12 +114,10 @@ export const sendOtp = async (req, res) => {
       }
     }
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: `OTP sent! Check your ${contactMethod}.`,
-      });
+    return res.status(200).json({
+      success: true,
+      message: `OTP sent! Check your ${contactMethod}.`,
+    });
   } catch (error) {
     console.error("OTP Send Error:", error);
     return res
@@ -163,43 +145,35 @@ export const verifyOtp = async (req, res) => {
         .json({ success: false, message: "Account not found." });
 
     if (!shop.otp || !shop.otpExpires)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "No OTP requested. Please request a new one.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "No OTP requested. Please request a new one.",
+      });
 
     if (shop.otpExpires < Date.now())
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "OTP expired. Please request a new one.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "OTP expired. Please request a new one.",
+      });
 
     const isMatch = await bcrypt.compare(otp, shop.otp);
     if (!isMatch)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Invalid OTP. Please check and try again.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP. Please check and try again.",
+      });
 
     shop.otp = null;
     shop.otpExpires = null;
     await shop.save();
 
     const token = shop.getSignedJwtToken();
-    return res
-      .status(200)
-      .json({
-        success: true,
-        token,
-        message: "Welcome back to RetailFlow!",
-        data: sanitizeShop(shop),
-      });
+    return res.status(200).json({
+      success: true,
+      token,
+      message: "Welcome back to RetailFlow!",
+      data: sanitizeShop(shop),
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -230,14 +204,12 @@ export const loginWithPassword = async (req, res) => {
         .json({ success: false, message: "Incorrect password." });
 
     const token = shop.getSignedJwtToken();
-    return res
-      .status(200)
-      .json({
-        success: true,
-        token,
-        message: "Welcome back to RetailFlow!",
-        data: sanitizeShop(shop),
-      });
+    return res.status(200).json({
+      success: true,
+      token,
+      message: "Welcome back to RetailFlow!",
+      data: sanitizeShop(shop),
+    });
   } catch (error) {
     console.error("Password Login Error:", error);
     return res.status(500).json({ success: false, message: error.message });
@@ -259,12 +231,10 @@ export const staffLogin = async (req, res) => {
         .json({ success: false, message: "Staff account not found." });
 
     if (!staff.isActive)
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Your account has been deactivated. Contact the owner.",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated. Contact the owner.",
+      });
 
     const isMatch = await bcrypt.compare(pin, staff.pin);
     if (!isMatch)
@@ -343,20 +313,16 @@ export const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
     if (!email || !otp || !newPassword)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Email, OTP, and new password are required.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Email, OTP, and new password are required.",
+      });
 
     if (newPassword.length < 6)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Password must be at least 6 characters.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters.",
+      });
 
     const shop = await Shop.findOne({ email }).select(
       "+password +otp +otpExpires",
@@ -372,12 +338,10 @@ export const resetPassword = async (req, res) => {
         .json({ success: false, message: "No reset OTP requested." });
 
     if (shop.otpExpires < Date.now())
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "OTP expired. Please request a new one.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "OTP expired. Please request a new one.",
+      });
 
     const isMatch = await bcrypt.compare(otp, shop.otp);
     if (!isMatch)
@@ -388,12 +352,10 @@ export const resetPassword = async (req, res) => {
     shop.otpExpires = null;
     await shop.save();
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Password reset successfully! Please login.",
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successfully! Please login.",
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -403,20 +365,16 @@ export const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Current and new password are required.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Current and new password are required.",
+      });
 
     if (newPassword.length < 6)
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "New password must be at least 6 characters.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "New password must be at least 6 characters.",
+      });
 
     const shop = await Shop.findById(req.shop.id).select("+password");
     if (!shop)
@@ -461,13 +419,11 @@ export const updateProfile = async (req, res) => {
       new: true,
       runValidators: true,
     });
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Profile updated!",
-        data: sanitizeShop(shop),
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated!",
+      data: sanitizeShop(shop),
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
