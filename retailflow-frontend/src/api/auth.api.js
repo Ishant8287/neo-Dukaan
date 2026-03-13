@@ -15,8 +15,28 @@ export const verifyLoginOtp = async (data) => {
   return response.data;
 };
 
+export const loginWithPassword = async (data) => {
+  const response = await API.post("/auth/login-password", data);
+  return response.data;
+};
+
 export const staffLogin = async (data) => {
   const response = await API.post("/auth/staff-login", data);
+  return response.data;
+};
+
+export const forgotPassword = async (data) => {
+  const response = await API.post("/auth/forgot-password", data);
+  return response.data;
+};
+
+export const resetPassword = async (data) => {
+  const response = await API.post("/auth/reset-password", data);
+  return response.data;
+};
+
+export const changePassword = async (data) => {
+  const response = await API.put("/auth/change-password", data);
   return response.data;
 };
 

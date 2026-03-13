@@ -7,12 +7,15 @@ import {
   staffLogin,
   getMe,
   updateProfile,
+  loginWithPassword,
+  forgotPassword,
+  resetPassword,
+  changePassword,
 } from "../controllers/auth.controller.js";
 import { protect } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-// IMAGEKIT AUTH ROUTE
 router.get("/imagekit-auth", (req, res) => {
   try {
     const imagekit = new ImageKit({
@@ -20,7 +23,6 @@ router.get("/imagekit-auth", (req, res) => {
       privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
       urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
     });
-
     const authenticationParameters = imagekit.getAuthenticationParameters();
     res.json(authenticationParameters);
   } catch (error) {
@@ -29,13 +31,16 @@ router.get("/imagekit-auth", (req, res) => {
   }
 });
 
-// Existing Routes...
 router.post("/register", register);
 router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);
 router.post("/staff-login", staffLogin);
+router.post("/login-password", loginWithPassword);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
 
 router.get("/me", protect, getMe);
 router.put("/profile", protect, updateProfile);
+router.put("/change-password", protect, changePassword);
 
 export default router;
