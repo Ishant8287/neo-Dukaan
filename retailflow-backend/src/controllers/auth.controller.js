@@ -1,7 +1,6 @@
 import Shop from "../models/Shop.js";
 import Staff from "../models/Staff.js";
 import bcrypt from "bcryptjs";
-import nodemailer from "nodemailer";
 
 const sanitizeShop = (shop) => {
   const obj = shop.toObject ? shop.toObject() : { ...shop };
@@ -65,63 +64,26 @@ export const sendOtp = async (req, res) => {
       });
     }
 
+    // OTP Generation
     const rawOtp = Math.floor(100000 + Math.random() * 900000).toString();
-
     const salt = await bcrypt.genSalt(10);
     shop.otp = await bcrypt.hash(rawOtp, salt);
     shop.otpExpires = Date.now() + 10 * 60 * 1000; // 10 mins
     await shop.save();
 
-    if (contactMethod === "email") {
-      let transporter;
-
-      if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-        transporter = nodemailer.createTransport({
-          host: "smtp.gmail.com",
-          port: 465,
-          secure: true,
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-          },
-          family: 4,
-        });
-      } else {
-        const testAccount = await nodemailer.createTestAccount();
-        transporter = nodemailer.createTransport({
-          host: "smtp.ethereal.email",
-          port: 587,
-          secure: false,
-          auth: { user: testAccount.user, pass: testAccount.pass },
-        });
-      }
-
-      const info = await transporter.sendMail({
-        from: `"RetailFlow Admin" <${process.env.EMAIL_USER || "noreply@retailflow.com"}>`,
-        to: shop.email,
-        subject: "RetailFlow - Your Login OTP",
-        html: `
-          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0b1120;color:#fff;padding:32px;border-radius:16px;">
-            <h2 style="color:#6366f1;">RetailFlow Login</h2>
-            <p>Your one-time login OTP is:</p>
-            <div style="font-size:36px;font-weight:900;color:#6366f1;letter-spacing:8px;padding:16px;background:#1e293b;border-radius:8px;text-align:center;">${rawOtp}</div>
-            <p style="color:#94a3b8;font-size:13px;">Valid for 10 minutes. Do not share this with anyone.</p>
-          </div>
-        `,
-      });
-
-      if (!process.env.EMAIL_USER) {
-        console.log(
-          `\n📧 Dev OTP Email Preview: ${nodemailer.getTestMessageUrl(info)}\n`,
-        );
-      }
-    } else {
-      console.log(`\n📱 MOCK SMS to ${shop.phone} — OTP: ${rawOtp}\n`);
-    }
+   
+    console.log(`\n=========================================`);
+    console.log(`🔑 RETAILFLOW DEMO LOGIN OTP`);
+    console.log(`👤 For: ${contactValue}`);
+    console.log(`🔢 OTP: ${rawOtp}`);
+    console.log(`=========================================\n`);
 
     res
       .status(200)
-      .json({ success: true, message: `OTP sent to your ${contactMethod}!` });
+      .json({
+        success: true,
+        message: `OTP sent to your ${contactMethod}! (Check Logs)`,
+      });
   } catch (error) {
     console.error("OTP Send Error:", error);
     res

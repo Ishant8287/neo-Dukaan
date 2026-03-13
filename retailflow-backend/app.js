@@ -20,6 +20,7 @@ import { errorHandler } from "./src/middlewares/errorHandler.js";
 import { apiLimiter } from "./src/middlewares/rateLimiter.js";
 
 const app = express();
+app.set("trust proxy", 1);
 
 // 1. GLOBAL MIDDLEWARES
 app.use(helmet());
