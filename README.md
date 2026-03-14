@@ -9,7 +9,7 @@ It combines POS billing, inventory management, khata book, supplier tracking, an
 🔗 Frontend:
 https://retail-flow-xi.vercel.app/
 
-🔗 Backend API:
+🔗 Backend:
 https://retailflow.onrender.com
 
 ## 📸 Screenshots
